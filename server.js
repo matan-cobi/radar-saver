@@ -17,7 +17,7 @@ app.use(express.json());
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 const notion = new Client({ auth: process.env.NOTION_API_KEY });
-const NOTION_DB_ID = process.env.NOTION_DB_ID;
+const NOTION_DB_ID = process.env.NOTION_DB_ID?.trim();
 const APP_PASSWORD = process.env.APP_PASSWORD;
 
 // Auth middleware
