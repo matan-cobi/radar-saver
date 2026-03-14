@@ -13,15 +13,12 @@ export default function App() {
   // Verify stored token on load
   useEffect(() => {
     if (!token) { setAuthChecked(true); return; }
-    fetch('/api/analyze-and-save', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-app-token': token },
-      body: JSON.stringify({ url: 'ping' }),
-    }).then((r) => {
-      // 400 = wrong body but auth passed; 401 = bad token
-      if (r.status !== 401) setAuthed(true);
-      else { localStorage.removeItem('radar_token'); setToken(''); }
-    }).catch(() => setAuthed(true)) // network error — assume ok
+    fetch('/api/auth-check', { headers: { 'x-app-token': token } })
+      .then((r) => {
+        if (r.ok) setAuthed(true);
+        else { localStorage.removeItem('radar_token'); setToken(''); }
+      })
+      .catch(() => setAuthed(true))
       .finally(() => setAuthChecked(true));
   }, []);
 

@@ -37,6 +37,11 @@ app.post('/api/login', (req, res) => {
   }
 });
 
+// Token verification (used on app load to check stored token)
+app.get('/api/auth-check', requireAuth, (req, res) => {
+  res.json({ ok: true });
+});
+
 app.post('/api/analyze-and-save', requireAuth, async (req, res) => {
   const { url, note } = req.body;
 
