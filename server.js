@@ -54,7 +54,7 @@ app.post('/api/analyze-and-save', requireAuth, async (req, res) => {
   try {
     const jinaUrl = `https://r.jina.ai/${url}`;
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 5000);
+    const timeout = setTimeout(() => controller.abort(), 15000);
     const response = await fetch(jinaUrl, {
       signal: controller.signal,
       headers: {
