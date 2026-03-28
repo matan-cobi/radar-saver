@@ -262,6 +262,48 @@ Topic options (use exact strings):
   res.json({ ...revised, pageId });
 });
 
+app.get('/api/entries', requireAuth, async (req, res) => {
+  const { type, source, relevance, topic, sort = 'date_desc', cursor } = req.query;
+
+  const filterConditions = [];
+  if (type) filterConditions.push({ property: 'Type', select: { equals: type } });
+  if (source) filterConditions.push({ property: 'Source', select: { equals: source } });
+  if (relevance) filterConditions.push({ property: 'Relevance', select: { equals: relevance } });
+  if (topic) filterConditions.push({ property: 'Topic', multi_select: { contains: topic } });
+
+  const sorts =
+    sort === 'date_asc' ? [{ timestamp: 'created_time', direction: 'ascending' }] :
+    sort === 'title_asc' ? [{ property: 'Title', direction: 'ascending' }] :
+    [{ timestamp: 'created_time', direction: 'descending' }];
+
+  try {
+    const query = { database_id: NOTION_DB_ID, page_size: 50, sorts };
+    if (filterConditions.length === 1) query.filter = filterConditions[0];
+    else if (filterConditions.length > 1) query.filter = { and: filterConditions };
+    if (cursor) query.start_cursor = cursor;
+
+    const response = await notion.databases.query(query);
+
+    const entries = response.results.map((page) => ({
+      id: page.id,
+      title: page.properties.Title?.title?.[0]?.plain_text || 'Untitled',
+      type: page.properties.Type?.select?.name || null,
+      source: page.properties.Source?.select?.name || null,
+      topic: page.properties.Topic?.multi_select?.map((t) => t.name) || [],
+      relevance: page.properties.Relevance?.select?.name || null,
+      summary: page.properties.Summary?.rich_text?.[0]?.plain_text || null,
+      url: page.properties.URL?.url || null,
+      author: page.properties.Author?.rich_text?.[0]?.plain_text || null,
+      createdAt: page.created_time,
+    }));
+
+    res.json({ entries, nextCursor: response.next_cursor, hasMore: response.has_more });
+  } catch (err) {
+    console.error('Notion query error:', err);
+    res.status(500).json({ error: 'Failed to fetch entries: ' + err.message });
+  }
+});
+
 // Serve built frontend in production
 const distPath = join(__dirname, 'dist');
 if (existsSync(distPath)) {
