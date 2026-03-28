@@ -337,14 +337,13 @@ input:disabled {
 
 body.library-mode {
   align-items: flex-start;
-  padding: 0;
+  padding: 16px;
 }
 
 .lib-page {
   width: 100%;
   max-width: 900px;
-  padding: 16px 16px 60px;
-  margin: 0 auto;
+  padding-bottom: 60px;
 }
 
 /* Header */
