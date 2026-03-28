@@ -225,7 +225,9 @@ Topic options (use exact strings):
       });
       const rawText = message.content[0].text.trim();
       const jsonText = rawText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
-      revised = JSON.parse(jsonText);
+      const parsed = JSON.parse(jsonText);
+      // Merge with currentAnalysis so any fields Claude omits fall back to existing values
+      revised = { ...currentAnalysis, ...parsed };
       break;
     } catch (err) {
       const isRetryable = err.status === 529 || err.status === 500 || err.status === 503;
