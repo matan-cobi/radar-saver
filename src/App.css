@@ -343,7 +343,7 @@ body.library-mode {
 .lib-page {
   width: 100%;
   max-width: 900px;
-  padding: 24px 20px 60px;
+  padding: 16px 16px 60px;
   margin: 0 auto;
 }
 
@@ -352,9 +352,9 @@ body.library-mode {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 20px;
-  padding-bottom: 16px;
+  gap: 10px;
+  margin-bottom: 14px;
+  padding-bottom: 14px;
   border-bottom: 1px solid var(--border);
 }
 
@@ -362,7 +362,7 @@ body.library-mode {
   background: none;
   border: 1.5px solid var(--border);
   border-radius: var(--radius-sm);
-  padding: 6px 14px;
+  padding: 7px 14px;
   font-size: 13px;
   font-weight: 500;
   font-family: inherit;
@@ -378,7 +378,7 @@ body.library-mode {
 }
 
 .lib-title {
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 600;
   color: var(--text);
   flex: 1;
@@ -395,7 +395,7 @@ body.library-mode {
 .lib-view-toggle button {
   background: none;
   border: none;
-  padding: 6px 11px;
+  padding: 7px 11px;
   font-size: 15px;
   cursor: pointer;
   color: var(--muted);
@@ -413,17 +413,18 @@ body.library-mode {
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 14px 16px;
-  margin-bottom: 20px;
+  padding: 12px 14px;
+  margin-bottom: 14px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
 }
 
+/* Each filter block: label on top, pills below */
 .filter-row {
   display: flex;
-  align-items: center;
-  gap: 10px;
+  flex-direction: column;
+  gap: 7px;
 }
 
 .filter-label {
@@ -432,15 +433,13 @@ body.library-mode {
   color: var(--muted);
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  min-width: 58px;
-  flex-shrink: 0;
 }
 
 .filter-pills {
   display: flex;
   gap: 6px;
   overflow-x: auto;
-  padding-bottom: 2px;
+  padding-bottom: 3px;
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
@@ -452,8 +451,8 @@ body.library-mode {
   background: none;
   border: 1.5px solid var(--border);
   border-radius: 99px;
-  padding: 4px 12px;
-  font-size: 12px;
+  padding: 6px 14px;
+  font-size: 13px;
   font-weight: 500;
   font-family: inherit;
   color: var(--muted);
@@ -476,17 +475,16 @@ body.library-mode {
 .lib-sort-row {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: space-between;
   gap: 10px;
-  padding-top: 6px;
+  padding-top: 8px;
   border-top: 1px solid var(--border);
-  margin-top: 2px;
 }
 
 .clear-filters {
   background: none;
   border: none;
-  font-size: 12px;
+  font-size: 13px;
   font-family: inherit;
   color: var(--muted);
   cursor: pointer;
@@ -499,7 +497,7 @@ body.library-mode {
 .sort-select {
   border: 1.5px solid var(--border);
   border-radius: var(--radius-sm);
-  padding: 5px 10px;
+  padding: 7px 10px;
   font-size: 13px;
   font-family: inherit;
   color: var(--text);
