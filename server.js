@@ -140,6 +140,7 @@ Relevance context: the user is a non-technical founder learning to build AI-powe
   }
 
   // Save to Notion
+  let notionPageId = null;
   try {
     const properties = {
       Title: {
@@ -174,16 +175,89 @@ Relevance context: the user is a non-technical founder learning to build AI-powe
       };
     }
 
-    await notion.pages.create({
+    const page = await notion.pages.create({
       parent: { database_id: NOTION_DB_ID },
       properties,
     });
+    notionPageId = page.id;
   } catch (err) {
     console.error('Notion error:', err);
     return res.status(500).json({ error: 'Saved by Claude but failed to write to Notion: ' + err.message });
   }
 
-  res.json(analysis);
+  res.json({ ...analysis, pageId: notionPageId });
+});
+
+app.post('/api/update-entry', requireAuth, async (req, res) => {
+  const { pageId, currentAnalysis, feedback, url } = req.body;
+  if (!pageId || !feedback) return res.status(400).json({ error: 'pageId and feedback are required' });
+
+  const prompt = `You previously analyzed a URL and produced this metadata:
+${JSON.stringify(currentAnalysis, null, 2)}
+
+The user has reviewed it and wants changes: "${feedback}"
+
+Return an updated version of the JSON object with ONLY the fields that need to change updated. Keep all other fields exactly as they are.
+Return ONLY a valid JSON object (no markdown, no code fences) with exactly these fields:
+
+{
+  "title": "short descriptive name of the content (not the raw URL)",
+  "author": "name of the person or organization who created the content — use null if unknown",
+  "type": "one of: Tool | Post | Video | Article | Thread | Newsletter | Book | Song | Film",
+  "source": "one of: LinkedIn | Twitter/X | Instagram | YouTube | Newsletter | Website | Other",
+  "topic": ["array of one or more from the list below"],
+  "relevance": "one of: ⭐ High | 👀 Medium | 🗃️ Low",
+  "summary": "1-2 sentences: what it is and why it's worth saving"
+}
+
+Topic options (use exact strings):
+"🤖 AI & Tech", "🛠️ Product Building", "💼 Business", "💡 Ideas & Inspiration",
+"📈 Career & Jobs", "📚 Books & Learning", "🏋️ Health & Fitness", "🎨 Design & Creativity",
+"🎮 Entertainment", "🎵 Music", "🎬 Films", "💰 Finance", "🌍 Travel", "🎯 Personal", "🔀 Other"`;
+
+  let revised;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const message = await anthropic.messages.create({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 1024,
+        messages: [{ role: 'user', content: prompt }],
+      });
+      const rawText = message.content[0].text.trim();
+      const jsonText = rawText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
+      revised = JSON.parse(jsonText);
+      break;
+    } catch (err) {
+      const isRetryable = err.status === 529 || err.status === 500 || err.status === 503;
+      if (isRetryable && attempt < 3) {
+        await new Promise((r) => setTimeout(r, attempt * 2000));
+        continue;
+      }
+      console.error('Claude error:', err);
+      return res.status(500).json({ error: 'Failed to revise with Claude: ' + err.message });
+    }
+  }
+
+  // Update Notion page
+  try {
+    const properties = {
+      Title: { title: [{ text: { content: revised.title } }] },
+      Type: { select: { name: revised.type } },
+      Source: { select: { name: revised.source } },
+      Topic: { multi_select: revised.topic.map((t) => ({ name: t })) },
+      Relevance: { select: { name: revised.relevance } },
+      Summary: { rich_text: [{ text: { content: revised.summary } }] },
+    };
+    if (revised.author) {
+      properties.Author = { rich_text: [{ text: { content: revised.author } }] };
+    }
+    await notion.pages.update({ page_id: pageId, properties });
+  } catch (err) {
+    console.error('Notion update error:', err);
+    return res.status(500).json({ error: 'Revised by Claude but failed to update Notion: ' + err.message });
+  }
+
+  res.json({ ...revised, pageId });
 });
 
 // Serve built frontend in production

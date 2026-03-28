@@ -274,6 +274,22 @@ input:disabled {
   font-weight: 500;
 }
 
+/* Button row (revise + save another side by side) */
+.button-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.button-row .save-btn {
+  flex: 1;
+}
+
+.button-row .reset-btn {
+  flex: 1;
+  margin-top: 0;
+}
+
 /* Reset button */
 .reset-btn {
   background: none;

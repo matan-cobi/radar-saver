@@ -92,12 +92,15 @@ function LoginScreen({ onLogin }) {
   );
 }
 
+const REVISING = 'revising';
+
 function MainApp({ token, onLogout }) {
   const [url, setUrl] = useState('');
   const [note, setNote] = useState('');
   const [state, setState] = useState(IDLE);
   const [result, setResult] = useState(null);
   const [errorMsg, setErrorMsg] = useState('');
+  const [feedback, setFeedback] = useState('');
 
   async function handleSave(e) {
     e.preventDefault();
@@ -130,12 +133,44 @@ function MainApp({ token, onLogout }) {
     }
   }
 
+  async function handleRevise(e) {
+    e.preventDefault();
+    if (!feedback.trim() || !result?.pageId) return;
+
+    setState(REVISING);
+    setErrorMsg('');
+
+    try {
+      const res = await fetch('/api/update-entry', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-app-token': token,
+        },
+        body: JSON.stringify({ pageId: result.pageId, currentAnalysis: result, feedback: feedback.trim(), url }),
+      });
+
+      if (res.status === 401) { onLogout(); return; }
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Something went wrong');
+
+      setResult(data);
+      setFeedback('');
+      setState(SUCCESS);
+    } catch (err) {
+      setErrorMsg(err.message);
+      setState(SUCCESS); // stay on success screen, show error inline
+    }
+  }
+
   function handleReset() {
     setUrl('');
     setNote('');
     setState(IDLE);
     setResult(null);
     setErrorMsg('');
+    setFeedback('');
   }
 
   return (
@@ -149,7 +184,7 @@ function MainApp({ token, onLogout }) {
           </div>
         </div>
 
-        {state !== SUCCESS && (
+        {state !== SUCCESS && state !== REVISING && (
           <form onSubmit={handleSave} className="form">
             <div className="field">
               <label htmlFor="url">URL</label>
@@ -198,7 +233,7 @@ function MainApp({ token, onLogout }) {
           </form>
         )}
 
-        {state === SUCCESS && result && (
+        {(state === SUCCESS || state === REVISING) && result && (
           <div className="success">
             <div className="success-icon">✓</div>
             <p className="saved-label">Saved to Notion</p>
@@ -221,9 +256,44 @@ function MainApp({ token, onLogout }) {
               </div>
             </div>
 
-            <button className="reset-btn" onClick={handleReset}>
-              Save another
-            </button>
+            <form onSubmit={handleRevise} className="form" style={{ marginTop: '1rem' }}>
+              <div className="field">
+                <label htmlFor="feedback">Request a change <span className="optional">(optional)</span></label>
+                <input
+                  id="feedback"
+                  type="text"
+                  placeholder="e.g. summary missed the point, type should be Article…"
+                  value={feedback}
+                  onChange={(e) => setFeedback(e.target.value)}
+                  disabled={state === REVISING}
+                  autoFocus
+                />
+              </div>
+
+              {errorMsg && (
+                <div className="error-banner">
+                  <span>⚠️</span>
+                  <span>{errorMsg}</span>
+                </div>
+              )}
+
+              <div className="button-row">
+                <button
+                  type="submit"
+                  className={`save-btn ${state === REVISING ? 'loading' : ''}`}
+                  disabled={state === REVISING || !feedback.trim()}
+                >
+                  {state === REVISING ? (
+                    <><span className="spinner" />Revising…</>
+                  ) : (
+                    'Revise'
+                  )}
+                </button>
+                <button type="button" className="reset-btn" onClick={handleReset}>
+                  Save another
+                </button>
+              </div>
+            </form>
           </div>
         )}
       </div>
