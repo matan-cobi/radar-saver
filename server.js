@@ -12,13 +12,56 @@ import Anthropic from '@anthropic-ai/sdk';
 import { Client } from '@notionhq/client';
 
 const app = express();
-app.use(cors());
-app.use(express.json());
+const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(',')
+  : ['http://localhost:5173', 'http://localhost:3001'];
+app.use(cors({ origin: ALLOWED_ORIGINS }));
+app.use(express.json({ limit: '1mb' }));
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 const notion = new Client({ auth: process.env.NOTION_API_KEY });
 const NOTION_DB_ID = process.env.NOTION_DB_ID?.trim();
 const APP_PASSWORD = process.env.APP_PASSWORD;
+
+function normalizeUrl(rawUrl) {
+  let u = (rawUrl || '').trim();
+  if (!u) return null;
+  if (!/^https?:\/\//i.test(u)) u = 'https://' + u;
+  try { new URL(u); return u; } catch { return null; }
+}
+
+function sanitizeAnalysis(obj) {
+  return {
+    ...obj,
+    title: obj.title || 'Untitled',
+    type: obj.type || 'Other',
+    source: obj.source || 'Website',
+    topic: Array.isArray(obj.topic) ? obj.topic : ['🔀 Other'],
+    relevance: obj.relevance || '🗃️ Low',
+    summary: obj.summary || '',
+    icon: obj.icon || '📌',
+  };
+}
+
+function buildAnalysisSchema() {
+  return `{
+  "title": "short descriptive name of the content (not the raw URL)",
+  "author": "name of the person or organization who created the content — use null if unknown",
+  "type": "one of: Tool | Post | Video | Article | Thread | Newsletter | Book | Song | Film",
+  "source": "one of: LinkedIn | Twitter/X | Instagram | YouTube | Newsletter | Website | Other",
+  "topic": ["array of one or more from the list below"],
+  "relevance": "one of: ⭐ High | 👀 Medium | 🗃️ Low",
+  "summary": "1-2 sentences: what it is and why it's worth saving",
+  "icon": "a single emoji that best represents this specific content (not just the type — pick something that fits the title/topic)"
+}
+
+Topic options (use exact strings):
+"🤖 AI & Tech", "🛠️ Product Building", "💼 Business", "💡 Ideas & Inspiration",
+"📈 Career & Jobs", "📚 Books & Learning", "🏋️ Health & Fitness", "🎨 Design & Creativity",
+"🎮 Entertainment", "🎵 Music", "🎬 Films", "💰 Finance", "🌍 Travel", "🎯 Personal", "🔀 Other"
+
+Relevance context: the user is a non-technical founder learning to build AI-powered micro-products to become self-employed. They are interested in entrepreneurship, AI tools (especially Claude), product building, and indie hacking. Rate relevance accordingly.`;
+}
 
 // Auth middleware
 function requireAuth(req, res, next) {
@@ -43,10 +86,11 @@ app.get('/api/auth-check', requireAuth, (req, res) => {
 });
 
 app.post('/api/analyze-and-save', requireAuth, async (req, res) => {
-  const { url, note } = req.body;
+  const { url: rawUrl, note } = req.body;
+  const url = normalizeUrl(rawUrl);
 
   if (!url) {
-    return res.status(400).json({ error: 'URL is required' });
+    return res.status(400).json({ error: 'Invalid or missing URL' });
   }
 
   // Fetch page content using Jina AI reader (handles JS-rendered pages, social media, etc.)
@@ -99,22 +143,7 @@ ${pageContent ? `\nPage content excerpt:\n${pageContent}` : ''}
 
 Return ONLY a valid JSON object (no markdown, no code fences) with exactly these fields:
 
-{
-  "title": "short descriptive name of the content (not the raw URL)",
-  "author": "name of the person or organization who created the content — use null if unknown",
-  "type": "one of: Tool | Post | Video | Article | Thread | Newsletter | Book | Song | Film",
-  "source": "one of: LinkedIn | Twitter/X | Instagram | YouTube | Newsletter | Website | Other",
-  "topic": ["array of one or more from the list below"],
-  "relevance": "one of: ⭐ High | 👀 Medium | 🗃️ Low",
-  "summary": "1-2 sentences: what it is and why it's worth saving"
-}
-
-Topic options (use exact strings):
-"🤖 AI & Tech", "🛠️ Product Building", "💼 Business", "💡 Ideas & Inspiration",
-"📈 Career & Jobs", "📚 Books & Learning", "🏋️ Health & Fitness", "🎨 Design & Creativity",
-"🎮 Entertainment", "🎵 Music", "🎬 Films", "💰 Finance", "🌍 Travel", "🎯 Personal", "🔀 Other"
-
-Relevance context: the user is a non-technical founder learning to build AI-powered micro-products to become self-employed. They are interested in entrepreneurship, AI tools (especially Claude), product building, and indie hacking. Rate relevance accordingly.`;
+${buildAnalysisSchema()}`;
 
   let analysis;
   for (let attempt = 1; attempt <= 3; attempt++) {
@@ -124,9 +153,10 @@ Relevance context: the user is a non-technical founder learning to build AI-powe
         max_tokens: 1024,
         messages: [{ role: 'user', content: prompt }],
       });
-      const rawText = message.content[0].text.trim();
+      const rawText = message.content?.[0]?.text?.trim();
+      if (!rawText) throw new Error('Empty response from Claude');
       const jsonText = rawText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
-      analysis = JSON.parse(jsonText);
+      analysis = sanitizeAnalysis(JSON.parse(jsonText));
       break;
     } catch (err) {
       const isRetryable = err.status === 529 || err.status === 500 || err.status === 503;
@@ -178,6 +208,7 @@ Relevance context: the user is a non-technical founder learning to build AI-powe
     const page = await notion.pages.create({
       parent: { database_id: NOTION_DB_ID },
       properties,
+      icon: analysis.icon ? { type: 'emoji', emoji: analysis.icon } : undefined,
     });
     notionPageId = page.id;
   } catch (err) {
@@ -200,20 +231,7 @@ The user has reviewed it and wants changes: "${feedback}"
 Return an updated version of the JSON object with ONLY the fields that need to change updated. Keep all other fields exactly as they are.
 Return ONLY a valid JSON object (no markdown, no code fences) with exactly these fields:
 
-{
-  "title": "short descriptive name of the content (not the raw URL)",
-  "author": "name of the person or organization who created the content — use null if unknown",
-  "type": "one of: Tool | Post | Video | Article | Thread | Newsletter | Book | Song | Film",
-  "source": "one of: LinkedIn | Twitter/X | Instagram | YouTube | Newsletter | Website | Other",
-  "topic": ["array of one or more from the list below"],
-  "relevance": "one of: ⭐ High | 👀 Medium | 🗃️ Low",
-  "summary": "1-2 sentences: what it is and why it's worth saving"
-}
-
-Topic options (use exact strings):
-"🤖 AI & Tech", "🛠️ Product Building", "💼 Business", "💡 Ideas & Inspiration",
-"📈 Career & Jobs", "📚 Books & Learning", "🏋️ Health & Fitness", "🎨 Design & Creativity",
-"🎮 Entertainment", "🎵 Music", "🎬 Films", "💰 Finance", "🌍 Travel", "🎯 Personal", "🔀 Other"`;
+${buildAnalysisSchema()}`;
 
   let revised;
   for (let attempt = 1; attempt <= 3; attempt++) {
@@ -223,11 +241,12 @@ Topic options (use exact strings):
         max_tokens: 1024,
         messages: [{ role: 'user', content: prompt }],
       });
-      const rawText = message.content[0].text.trim();
+      const rawText = message.content?.[0]?.text?.trim();
+      if (!rawText) throw new Error('Empty response from Claude');
       const jsonText = rawText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
       const parsed = JSON.parse(jsonText);
       // Merge with currentAnalysis so any fields Claude omits fall back to existing values
-      revised = { ...currentAnalysis, ...parsed };
+      revised = sanitizeAnalysis({ ...currentAnalysis, ...parsed });
       break;
     } catch (err) {
       const isRetryable = err.status === 529 || err.status === 500 || err.status === 503;
@@ -253,7 +272,11 @@ Topic options (use exact strings):
     if (revised.author) {
       properties.Author = { rich_text: [{ text: { content: revised.author } }] };
     }
-    await notion.pages.update({ page_id: pageId, properties });
+    await notion.pages.update({
+      page_id: pageId,
+      properties,
+      icon: revised.icon ? { type: 'emoji', emoji: revised.icon } : undefined,
+    });
   } catch (err) {
     console.error('Notion update error:', err);
     return res.status(500).json({ error: 'Revised by Claude but failed to update Notion: ' + err.message });
@@ -294,6 +317,7 @@ app.get('/api/entries', requireAuth, async (req, res) => {
       summary: page.properties.Summary?.rich_text?.[0]?.plain_text || null,
       url: page.properties.URL?.url || null,
       author: page.properties.Author?.rich_text?.[0]?.plain_text || null,
+      icon: page.icon?.emoji || null,
       createdAt: page.created_time,
     }));
 

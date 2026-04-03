@@ -26,7 +26,7 @@ export default function App() {
         if (r.ok) setAuthed(true);
         else { localStorage.removeItem('radar_token'); setToken(''); }
       })
-      .catch(() => setAuthed(true))
+      .catch(() => { localStorage.removeItem('radar_token'); setToken(''); })
       .finally(() => setAuthChecked(true));
   }, []);
 
@@ -190,7 +190,7 @@ function SaveView({ token, onLogout, onOpenLibrary }) {
               <label htmlFor="url">URL</label>
               <input
                 id="url"
-                type="url"
+                type="text"
                 placeholder="https://..."
                 value={url}
                 onChange={(e) => setUrl(e.target.value)}
@@ -231,7 +231,7 @@ function SaveView({ token, onLogout, onOpenLibrary }) {
             <div className="success-icon">✓</div>
             <p className="saved-label">Saved to Notion</p>
             <div className="result-card">
-              <h2 className="result-title">{result.title}</h2>
+              <h2 className="result-title">{result.icon && <span>{result.icon} </span>}{result.title}</h2>
               <p className="result-summary">{result.summary}</p>
               <div className="meta-row">
                 <MetaBadge icon="📂" value={result.type} />
@@ -433,7 +433,7 @@ function EntryCard({ entry, viewMode }) {
     <div className={`entry-card ${viewMode}`}>
       <div className="entry-card-top">
         <a href={entry.url} target="_blank" rel="noopener noreferrer" className="entry-title">
-          {entry.title}
+          {entry.icon && <span>{entry.icon} </span>}{entry.title}
         </a>
         <span className="entry-date">{date}</span>
       </div>

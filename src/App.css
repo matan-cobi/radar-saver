@@ -424,6 +424,19 @@ body.library-mode {
   display: flex;
   flex-direction: column;
   gap: 7px;
+  position: relative;
+}
+
+.filter-row::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 20px;
+  bottom: 0;
+  width: 30px;
+  background: linear-gradient(to right, transparent, var(--card));
+  pointer-events: none;
+  display: none;
 }
 
 .filter-label {
@@ -645,4 +658,97 @@ body.library-mode {
 .load-more-btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+@media (max-width: 640px) {
+  .filter-row::after {
+    display: block;
+  }
+
+  .lib-header {
+    margin-bottom: 10px;
+    padding-bottom: 10px;
+  }
+
+  .lib-title {
+    font-size: 15px;
+  }
+
+  .lib-toolbar {
+    padding: 10px 12px;
+    gap: 10px;
+  }
+
+  .filter-pills {
+    padding-right: 24px;
+  }
+
+  .filter-pill {
+    padding: 10px 14px;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .sort-select {
+    min-height: 44px;
+    font-size: 14px;
+    padding: 10px 10px;
+  }
+
+  .lib-sort-row {
+    flex-wrap: wrap;
+  }
+
+  .lib-back-btn {
+    min-height: 44px;
+    padding: 10px 14px;
+  }
+
+  .lib-view-toggle button {
+    padding: 10px 14px;
+    min-height: 44px;
+  }
+
+  .clear-filters {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .entry-card {
+    padding: 14px;
+  }
+
+  .entry-title {
+    font-size: 15px;
+  }
+
+  .meta-badge {
+    padding: 5px 10px;
+  }
+
+  .topic-chip {
+    padding: 5px 10px;
+  }
+
+  .load-more-btn {
+    min-height: 48px;
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 380px) {
+  body.library-mode {
+    padding: 10px;
+  }
+
+  .lib-toolbar {
+    padding: 8px 10px;
+  }
+
+  .filter-pill {
+    padding: 8px 12px;
+    font-size: 12px;
+  }
 }
