@@ -93,44 +93,68 @@ app.post('/api/analyze-and-save', requireAuth, async (req, res) => {
     return res.status(400).json({ error: 'Invalid or missing URL' });
   }
 
-  // Fetch page content using Jina AI reader (handles JS-rendered pages, social media, etc.)
+  // Fetch page content
   let pageContent = '';
-  try {
-    const jinaUrl = `https://r.jina.ai/${url}`;
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 15000);
-    const response = await fetch(jinaUrl, {
-      signal: controller.signal,
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; RadarSaver/1.0)',
-        'Accept': 'text/plain',
-      },
-    });
-    clearTimeout(timeout);
-    if (response.ok) {
-      const text = await response.text();
-      pageContent = text.trim().slice(0, 2000);
-    }
-  } catch {
-    // Jina failed — try direct fetch as fallback
+  const isTwitter = /^https?:\/\/(www\.)?(twitter\.com|x\.com)\//i.test(url);
+
+  if (isTwitter) {
+    // Use Twitter's public oEmbed API — no auth required
     try {
+      const oembedUrl = `https://publish.twitter.com/oembed?url=${encodeURIComponent(url)}&omit_script=true`;
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 5000);
-      const response = await fetch(url, {
+      const timeout = setTimeout(() => controller.abort(), 8000);
+      const response = await fetch(oembedUrl, { signal: controller.signal });
+      clearTimeout(timeout);
+      if (response.ok) {
+        const data = await response.json();
+        const text = (data.html || '')
+          .replace(/<[^>]+>/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim();
+        if (text) pageContent = `Author: ${data.author_name}\n\n${text}`.slice(0, 2000);
+      }
+    } catch {
+      // oEmbed failed — will rely on URL alone
+    }
+  } else {
+    // Try Jina AI reader first (handles JS-rendered pages)
+    try {
+      const jinaUrl = `https://r.jina.ai/${url}`;
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 15000);
+      const response = await fetch(jinaUrl, {
         signal: controller.signal,
-        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; RadarSaver/1.0)' },
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (compatible; RadarSaver/1.0)',
+          'Accept': 'text/plain',
+        },
       });
       clearTimeout(timeout);
-      const html = await response.text();
-      pageContent = html
-        .replace(/<script[\s\S]*?<\/script>/gi, '')
-        .replace(/<style[\s\S]*?<\/style>/gi, '')
-        .replace(/<[^>]+>/g, ' ')
-        .replace(/\s+/g, ' ')
-        .trim()
-        .slice(0, 2000);
+      if (response.ok) {
+        const text = await response.text();
+        pageContent = text.trim().slice(0, 2000);
+      }
     } catch {
-      // Can't fetch — rely on URL alone
+      // Jina failed — try direct fetch as fallback
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 5000);
+        const response = await fetch(url, {
+          signal: controller.signal,
+          headers: { 'User-Agent': 'Mozilla/5.0 (compatible; RadarSaver/1.0)' },
+        });
+        clearTimeout(timeout);
+        const html = await response.text();
+        pageContent = html
+          .replace(/<script[\s\S]*?<\/script>/gi, '')
+          .replace(/<style[\s\S]*?<\/style>/gi, '')
+          .replace(/<[^>]+>/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim()
+          .slice(0, 2000);
+      } catch {
+        // Can't fetch — rely on URL alone
+      }
     }
   }
 
@@ -159,7 +183,7 @@ ${buildAnalysisSchema()}`;
       analysis = sanitizeAnalysis(JSON.parse(jsonText));
       break;
     } catch (err) {
-      const isRetryable = err.status === 529 || err.status === 500 || err.status === 503;
+      const isRetryable = err.status === 529 || err.status === 500 || err.status === 503 || err instanceof SyntaxError;
       if (isRetryable && attempt < 3) {
         await new Promise((r) => setTimeout(r, attempt * 2000));
         continue;
@@ -249,7 +273,7 @@ ${buildAnalysisSchema()}`;
       revised = sanitizeAnalysis({ ...currentAnalysis, ...parsed });
       break;
     } catch (err) {
-      const isRetryable = err.status === 529 || err.status === 500 || err.status === 503;
+      const isRetryable = err.status === 529 || err.status === 500 || err.status === 503 || err instanceof SyntaxError;
       if (isRetryable && attempt < 3) {
         await new Promise((r) => setTimeout(r, attempt * 2000));
         continue;
