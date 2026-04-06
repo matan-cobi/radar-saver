@@ -294,8 +294,8 @@ function LibraryView({ token, onLogout, onBack }) {
   const [viewMode, setViewMode] = useState('list');
 
   useEffect(() => {
-    document.body.classList.add('library-mode');
-    return () => document.body.classList.remove('library-mode');
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = ''; };
   }, []);
 
   useEffect(() => {
@@ -342,6 +342,7 @@ function LibraryView({ token, onLogout, onBack }) {
   const hasFilters = filterType || filterRelevance || filterTopic;
 
   return (
+    <div className="lib-overlay">
     <div className="lib-page">
       {/* Header */}
       <div className="lib-header">
@@ -422,6 +423,7 @@ function LibraryView({ token, onLogout, onBack }) {
           )}
         </>
       )}
+    </div>
     </div>
   );
 }
