@@ -68,7 +68,7 @@ function LoginScreen({ onLogin }) {
           <span className="logo">📡</span>
           <div>
             <h1>Radar Saver</h1>
-            <p className="subtitle">Enter your password to continue.</p>
+            <p className="subtitle">Enter your password to continue</p>
           </div>
         </div>
         <form onSubmit={handleSubmit} className="form">
@@ -179,7 +179,7 @@ function SaveView({ token, onLogout, onOpenLibrary }) {
           <span className="logo">📡</span>
           <div style={{ flex: 1 }}>
             <h1>Radar Saver</h1>
-            <p className="subtitle">Save anything to Notion — instantly.</p>
+            <p className="subtitle">Save anything to Notion — instantly</p>
           </div>
           <button className="lib-nav-btn" onClick={onOpenLibrary}>Library →</button>
         </div>
